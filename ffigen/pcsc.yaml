@@ -1,0 +1,7 @@
+name: 'PcscLib'
+output: 'lib/src/generated/pcsc_lib.dart'
+headers:
+  entry-points:
+    - 'include/pcsc/winscard.h'
+preamble: |
+  // ignore_for_file: camel_case_types, non_constant_identifier_names, constant_identifier_names

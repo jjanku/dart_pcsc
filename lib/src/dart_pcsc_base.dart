@@ -40,4 +40,28 @@ class PcscContext {
   void release() {
     _okOrThrow(_pcscLib.SCardReleaseContext(_hContext));
   }
+
+  Iterable<String> _multiStringToDart(Pointer<Utf8> multiString) sync* {
+    while (multiString.cast<Int8>().value != 0) {
+      final length = multiString.length;
+      yield multiString.toDartString(length: length);
+      multiString = Pointer.fromAddress(multiString.address + length + 1);
+    }
+  }
+
+  List<String> listReaders() {
+    return using((alloc) {
+      final pcchReaders = alloc<DWORD>();
+      _okOrThrow(
+          _pcscLib.SCardListReaders(_hContext, nullptr, nullptr, pcchReaders));
+
+      if (pcchReaders.value == 0) return [];
+
+      final mszReaders = alloc<Int8>(pcchReaders.value);
+      _okOrThrow(_pcscLib.SCardListReaders(
+          _hContext, nullptr, mszReaders, pcchReaders));
+
+      return _multiStringToDart(mszReaders.cast<Utf8>()).toList();
+    });
+  }
 }

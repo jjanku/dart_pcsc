@@ -64,4 +64,36 @@ class PcscContext {
       return _multiStringToDart(mszReaders.cast<Utf8>()).toList();
     });
   }
+
+  List<String> _waitForState(int timeout, List<String> readers, int state) {
+    return using((alloc) {
+      final length = readers.length;
+
+      final states = alloc<SCARD_READERSTATE>(length);
+      for (var i = 0; i < length; i++) {
+        states[i].szReader = readers[i].toNativeUtf8(allocator: alloc).cast();
+        states[i].dwCurrentState = SCARD_STATE_UNAWARE;
+      }
+
+      while (true) {
+        _okOrThrow(
+            _pcscLib.SCardGetStatusChange(_hContext, timeout, states, length));
+
+        // TODO: check wanted state
+        for (var i = 0; i < length; i++) {
+          final newState = states[i].dwEventState;
+          if (newState == state) ;
+          states[i].dwCurrentState = newState;
+        }
+      }
+    });
+  }
+
+  void waitForReader() {}
+
+  void waitForCard() {}
+
+  void cancel() {
+    _okOrThrow(_pcscLib.SCardCancel(_hContext));
+  }
 }

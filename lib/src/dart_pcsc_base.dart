@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 
 import 'constants.dart';
+import 'exceptions.dart';
 import 'generated/pcsc_lib.dart';
 
 String _pcscLibName() {
@@ -15,30 +16,20 @@ PcscLib _pcscLibOpen() => PcscLib(DynamicLibrary.open(_pcscLibName()));
 
 late final _pcscLib = _pcscLibOpen();
 
-class PcscException implements Exception {
-  final int errorCode;
-  PcscException(this.errorCode);
-}
-
-void _okOrThrow(int result) {
-  if (result == SCARD_S_SUCCESS) return;
-  throw PcscException(result);
-}
-
 class PcscContext {
   late final int _hContext;
 
   PcscContext.establish(Scope scope) {
     using((alloc) {
       final phContext = alloc<SCARDCONTEXT>();
-      _okOrThrow(_pcscLib.SCardEstablishContext(
+      okOrThrow(_pcscLib.SCardEstablishContext(
           scope.value, nullptr, nullptr, phContext));
       _hContext = phContext.value;
     });
   }
 
   void release() {
-    _okOrThrow(_pcscLib.SCardReleaseContext(_hContext));
+    okOrThrow(_pcscLib.SCardReleaseContext(_hContext));
   }
 
   Iterable<String> _multiStringToDart(Pointer<Utf8> multiString) sync* {
@@ -52,13 +43,13 @@ class PcscContext {
   List<String> listReaders() {
     return using((alloc) {
       final pcchReaders = alloc<DWORD>();
-      _okOrThrow(
+      okOrThrow(
           _pcscLib.SCardListReaders(_hContext, nullptr, nullptr, pcchReaders));
 
       if (pcchReaders.value == 0) return [];
 
       final mszReaders = alloc<Int8>(pcchReaders.value);
-      _okOrThrow(_pcscLib.SCardListReaders(
+      okOrThrow(_pcscLib.SCardListReaders(
           _hContext, nullptr, mszReaders, pcchReaders));
 
       return _multiStringToDart(mszReaders.cast<Utf8>()).toList();
@@ -76,7 +67,7 @@ class PcscContext {
       }
 
       while (true) {
-        _okOrThrow(
+        okOrThrow(
             _pcscLib.SCardGetStatusChange(_hContext, timeout, states, length));
 
         // TODO: check wanted state
@@ -94,6 +85,6 @@ class PcscContext {
   void waitForCard() {}
 
   void cancel() {
-    _okOrThrow(_pcscLib.SCardCancel(_hContext));
+    okOrThrow(_pcscLib.SCardCancel(_hContext));
   }
 }

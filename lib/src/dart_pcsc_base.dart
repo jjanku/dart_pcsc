@@ -6,6 +6,7 @@ import 'package:ffi/ffi.dart';
 import 'constants.dart';
 import 'exceptions.dart';
 import 'generated/pcsc_lib.dart';
+import 'native_util.dart';
 
 String _pcscLibName() {
   if (Platform.isLinux) return 'libpcsclite.so.1';
@@ -32,14 +33,6 @@ class PcscContext {
     okOrThrow(_pcscLib.SCardReleaseContext(_hContext));
   }
 
-  Iterable<String> _multiStringToDart(Pointer<Utf8> multiString) sync* {
-    while (multiString.cast<Int8>().value != 0) {
-      final length = multiString.length;
-      yield multiString.toDartString(length: length);
-      multiString = Pointer.fromAddress(multiString.address + length + 1);
-    }
-  }
-
   List<String> listReaders() {
     return using((alloc) {
       final pcchReaders = alloc<DWORD>();
@@ -52,7 +45,7 @@ class PcscContext {
       okOrThrow(_pcscLib.SCardListReaders(
           _hContext, nullptr, mszReaders, pcchReaders));
 
-      return _multiStringToDart(mszReaders.cast<Utf8>()).toList();
+      return multiStringToDart(mszReaders.cast<Utf8>()).toList();
     });
   }
 

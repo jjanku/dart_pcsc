@@ -1,5 +1,4 @@
 import 'dart:ffi';
-import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
@@ -8,14 +7,7 @@ import 'exceptions.dart';
 import 'generated/pcsc_lib.dart';
 import 'native_util.dart';
 
-String _pcscLibName() {
-  if (Platform.isLinux) return 'libpcsclite.so.1';
-  throw UnsupportedError('Platform unsupported');
-}
-
-PcscLib _pcscLibOpen() => PcscLib(DynamicLibrary.open(_pcscLibName()));
-
-late final _pcscLib = _pcscLibOpen();
+late final _pcscLib = pcscLibOpen();
 
 class PcscContext {
   late final int _hContext;

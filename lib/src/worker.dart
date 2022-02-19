@@ -27,38 +27,62 @@ class Worker {
   late final Isolate _isolate;
   late final ReceivePort _receivePort;
   late final SendPort _sendPort;
+  final _startupCompleter = Completer<void>();
 
   // FIXME: this is ok as long as we don't use async
-  // functions in the worker isolate
+  // functions in the worker isolate, use ids?
   final Queue<Completer> _requests = ListQueue();
 
   Worker(this.entryPoint, {this.debugName = 'worker'});
 
   Future<void> start() async {
-    // FIXME: reinit
     _receivePort = ReceivePort();
-    _receivePort.listen(_onResponse);
+    _receivePort.listen(_onResponse, onDone: _onDone);
+
     _isolate = await Isolate.spawn(
       entryPoint,
       _receivePort.sendPort,
       debugName: debugName,
     );
+
+    await _startupCompleter.future;
   }
 
-  void stop() => _isolate.kill();
+  void stop() {
+    _receivePort.close();
+    if (!_startupCompleter.isCompleted) {
+      _startupCompleter.completeError(
+        Exception('worker stopped'),
+      );
+    }
+    _isolate.kill();
+  }
+
+  void _onDone() {
+    while (_requests.isNotEmpty) {
+      // TODO: replace with cancellable operation or
+      // subclass excpetion
+      _requests.removeFirst().completeError(Exception('worker stopped'));
+    }
+  }
 
   void _onResponse(dynamic response) {
     if (response is SendPort) {
       _sendPort = response;
+      _startupCompleter.complete();
       return;
     }
 
     final completer = _requests.removeFirst();
-    completer.complete(response);
+
+    if (response is Exception) {
+      completer.completeError(response);
+    } else {
+      completer.complete(response);
+    }
   }
 
   Future<T> enqueueRequest<T>(request) {
-    // FIXME: wait for sendPort?
     final completer = Completer<T>();
     _requests.addLast(completer);
     _sendPort.send(request);

@@ -11,6 +11,24 @@ import 'worker.dart';
 
 late final _pcscLib = pcscLibOpen();
 
+class EstablishRequest {
+  final Scope scope;
+  EstablishRequest(this.scope);
+}
+
+class ReleaseRequest {}
+
+class ListRequest {}
+
+class WaitRequest {
+  List<String> readers;
+  List<int> states;
+  final int timeout;
+  WaitRequest(this.readers, this.states, {this.timeout = 1000}) {
+    assert(readers.length == states.length);
+  }
+}
+
 class ContextWorkerThread extends WorkerThread {
   late final int _hContext;
 
@@ -18,10 +36,22 @@ class ContextWorkerThread extends WorkerThread {
 
   @override
   handleMessage(message) {
-    if (message is Scope) return establish(message);
-    if (message == 'release') return release();
-    if (message == 'list') return listReaders();
-    // TODO: implement handleMessage
+    try {
+      if (message is EstablishRequest) return _establish(message.scope);
+      if (message is ReleaseRequest) return _release();
+      if (message is ListRequest) return _listReaders();
+      if (message is WaitRequest) {
+        return _waitForChange(
+          message.timeout,
+          message.readers,
+          message.states,
+        );
+      }
+    } on PcscException catch (e) {
+      // send back as a result of the future,
+      // other errors are thrown inside the worker
+      return e;
+    }
     throw UnimplementedError();
   }
 
@@ -29,7 +59,7 @@ class ContextWorkerThread extends WorkerThread {
     ContextWorkerThread(sendPort);
   }
 
-  int establish(Scope scope) {
+  int _establish(Scope scope) {
     // FIXME: resource cleanup when isolate killed?
     return using((alloc) {
       final phContext = alloc<SCARDCONTEXT>();
@@ -40,12 +70,11 @@ class ContextWorkerThread extends WorkerThread {
     });
   }
 
-  void release() {
+  void _release() {
     okOrThrow(_pcscLib.SCardReleaseContext(_hContext));
   }
 
-  // FIXME: propagate errors
-  List<String> listReaders() {
+  List<String> _listReaders() {
     return using((alloc) {
       final pcchReaders = alloc<DWORD>();
       okOrThrow(
@@ -60,6 +89,31 @@ class ContextWorkerThread extends WorkerThread {
       return multiStringToDart(mszReaders.cast<Utf8>()).toList();
     });
   }
+
+  List<int> _waitForChange(
+    int timeout,
+    List<String> readers,
+    List<int> states,
+  ) {
+    return using((alloc) {
+      final length = readers.length;
+
+      final pStates = alloc<SCARD_READERSTATE>(length);
+      for (var i = 0; i < length; i++) {
+        pStates[i].szReader = readers[i].toNativeUtf8(allocator: alloc).cast();
+        pStates[i].dwCurrentState = states[i];
+      }
+
+      okOrThrow(
+          _pcscLib.SCardGetStatusChange(_hContext, timeout, pStates, length));
+
+      List<int> newStates = [];
+      for (var i = 0; i < length; i++) {
+        newStates.add(pStates[i].dwEventState);
+      }
+      return newStates;
+    });
+  }
 }
 
 class PcscContext {
@@ -68,41 +122,17 @@ class PcscContext {
 
   Future<void> establish(Scope scope) async {
     await _worker.start();
-    _hContext = await _worker.enqueueRequest(scope);
+    _hContext = await _worker.enqueueRequest(EstablishRequest(scope));
   }
 
   Future<void> release() async {
-    await _worker.enqueueRequest('release');
+    await _worker.enqueueRequest(ReleaseRequest());
     _worker.stop();
   }
 
-  Future<List<String>> listReaders() => _worker.enqueueRequest('list');
+  Future<List<String>> listReaders() => _worker.enqueueRequest(ListRequest());
 
-  // List<String> _waitForState(int timeout, List<String> readers, int state) {
-  //   return using((alloc) {
-  //     final length = readers.length;
-
-  //     final states = alloc<SCARD_READERSTATE>(length);
-  //     for (var i = 0; i < length; i++) {
-  //       states[i].szReader = readers[i].toNativeUtf8(allocator: alloc).cast();
-  //       states[i].dwCurrentState = SCARD_STATE_UNAWARE;
-  //     }
-
-  //     while (true) {
-  //       okOrThrow(
-  //           _pcscLib.SCardGetStatusChange(_hContext, timeout, states, length));
-
-  //       // TODO: check wanted state
-  //       for (var i = 0; i < length; i++) {
-  //         final newState = states[i].dwEventState;
-  //         if (newState == state) ;
-  //         states[i].dwCurrentState = newState;
-  //       }
-  //     }
-  //   });
-  // }
-
-  // void waitForReader() {}
+  // Future<void> waitForReader() async {}
 
   // void waitForCard() {}
 

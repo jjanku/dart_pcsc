@@ -1,6 +1,7 @@
 import 'dart:ffi';
 import 'dart:isolate';
 
+import 'package:async/async.dart';
 import 'package:ffi/ffi.dart';
 
 import 'constants.dart';
@@ -19,7 +20,7 @@ class ReleaseRequest {}
 class ListRequest {}
 
 class WaitRequest {
-  List<String> readers;
+  final List<String> readers;
   List<int> states;
   final int timeout;
   WaitRequest(this.readers, this.states, {this.timeout = 1000}) {
@@ -118,6 +119,8 @@ class PcscContext {
   late final int _hContext;
   final _worker = Worker(ContextWorkerThread.entryPoint);
 
+  CancelableCompleter<List<String>>? _waitCompleter;
+
   Future<void> establish(Scope scope) async {
     await _worker.start();
     _hContext = await _worker.enqueueRequest(EstablishRequest(scope));
@@ -130,11 +133,55 @@ class PcscContext {
 
   Future<List<String>> listReaders() => _worker.enqueueRequest(ListRequest());
 
-  // Future<void> waitForReader() async {}
+  void _completeOnState(
+    List<String> readers,
+    int state,
+    CancelableCompleter<List<String>> completer,
+  ) async {
+    final initStates = List<int>.filled(readers.length, SCARD_STATE_UNAWARE);
+    final request = WaitRequest(readers, initStates);
+
+    while (!completer.isCanceled) {
+      // FIXME: handle exceptions?
+      List<int> newStates = await _worker.enqueueRequest(request);
+
+      List<String> satisfied = [];
+      for (int i = 0; i < readers.length; i++) {
+        if (newStates[i] == state) {
+          satisfied.add(readers[i]);
+        }
+      }
+      if (satisfied.isNotEmpty) {
+        completer.complete(satisfied);
+        return;
+      }
+
+      request.states = newStates;
+    }
+  }
+
+  CancelableOperation<List<String>> _waitForState(
+    List<String> readers,
+    int state,
+  ) {
+    if (_waitCompleter != null) {
+      throw StateError('Parallel wait operations not allowed');
+    }
+
+    final completer = CancelableCompleter<List<String>>(onCancel: _cancel);
+    _completeOnState(readers, state, completer);
+    _waitCompleter = completer;
+    return completer.operation;
+  }
+
+  CancelableOperation<void> waitForReaderChange() {
+    return _waitForState([r'\\?PnP?\Notification'], SCARD_STATE_CHANGED);
+  }
 
   // void waitForCard() {}
 
-  void cancel() {
+  void _cancel() {
     okOrThrow(pcscLib.SCardCancel(_hContext));
+    _waitCompleter = null;
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:ffi';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:async/async.dart';
 import 'package:ffi/ffi.dart';
@@ -39,6 +40,24 @@ class ConnectRequest {
   const ConnectRequest(this.reader, this.mode, this.protocol);
 }
 
+class Connection {
+  final int hCard;
+  final int activeProtocol;
+  const Connection(this.hCard, this.activeProtocol);
+}
+
+class TransmitRequest {
+  final Connection connection;
+  final TransferableTypedData data;
+  TransmitRequest(this.connection, this.data);
+}
+
+class DisconnectRequest {
+  final int hCard;
+  final Disposition disposition;
+  const DisconnectRequest(this.hCard, this.disposition);
+}
+
 class ContextWorkerThread extends WorkerThread {
   late final int _hContext;
 
@@ -57,8 +76,16 @@ class ContextWorkerThread extends WorkerThread {
           message.states,
         );
       }
+
       if (message is ConnectRequest) {
         return _connect(message.reader, message.mode, message.protocol);
+      }
+      if (message is TransmitRequest) {
+        return _transmit(message.connection.hCard,
+            message.connection.activeProtocol, message.data);
+      }
+      if (message is DisconnectRequest) {
+        return _disconnect(message.hCard, message.disposition);
       }
     } on PcscException catch (e) {
       // send back as a result of the future,
@@ -128,7 +155,7 @@ class ContextWorkerThread extends WorkerThread {
     });
   }
 
-  int _connect(String reader, ShareMode mode, Protocol protocol) {
+  Connection _connect(String reader, ShareMode mode, Protocol protocol) {
     return using((alloc) {
       final szReader = reader.toNativeUtf8(allocator: alloc).cast<Int8>();
       final phCard = alloc<SCARDHANDLE>();
@@ -137,8 +164,41 @@ class ContextWorkerThread extends WorkerThread {
       okOrThrow(pcscLib.SCardConnect(_hContext, szReader, mode.value,
           protocol.value, phCard, pdwActiveProtocol));
 
-      return phCard.value;
+      return Connection(phCard.value, pdwActiveProtocol.value);
     });
+  }
+
+  TransferableTypedData _transmit(
+    int hCard,
+    int activeProtocol,
+    TransferableTypedData transData,
+  ) {
+    return using((alloc) {
+      final pcbRecvLength = alloc<DWORD>();
+      pcbRecvLength.value = MAX_BUFFER_SIZE_EXTENDED;
+      final pbRecvBuffer = alloc<Uint8>(pcbRecvLength.value);
+
+      // FIXME: maybe just edit the auto-generated bindings and expose
+      // the struct pointer?
+      final pioSendPci = alloc<SCARD_IO_REQUEST>();
+      SCARD_IO_REQUEST ioSendPci = pcscLib.getIoRequest(activeProtocol);
+      pioSendPci.ref.cbPciLength = ioSendPci.cbPciLength;
+      pioSendPci.ref.dwProtocol = ioSendPci.dwProtocol;
+
+      final data = transData.materialize().asUint8List();
+      final pbSendBuffer = alloc<Uint8>(data.length);
+      pbSendBuffer.asTypedList(data.length).setAll(0, data);
+
+      okOrThrow(pcscLib.SCardTransmit(hCard, pioSendPci, pbSendBuffer,
+          data.length, nullptr, pbRecvBuffer, pcbRecvLength));
+
+      final recvBufferList = pbRecvBuffer.asTypedList(pcbRecvLength.value);
+      return TransferableTypedData.fromList([recvBufferList]);
+    });
+  }
+
+  void _disconnect(int hCard, Disposition disposition) {
+    pcscLib.SCardDisconnect(hCard, disposition.value);
   }
 }
 
@@ -244,20 +304,36 @@ class PcscContext {
     ShareMode mode,
     Protocol protocol,
   ) async {
-    int hCard = await _worker.enqueueRequest(
+    Connection connection = await _worker.enqueueRequest(
       ConnectRequest(reader, mode, protocol),
     );
-    // FIXME: hide this constructor?
-    return PcscCard(hCard);
+    return PcscCard._internal(connection, this);
   }
+
+  Future<TransferableTypedData> _transmit(
+    Connection connection,
+    TransferableTypedData data,
+  ) =>
+      _worker.enqueueRequest(TransmitRequest(connection, data));
+
+  Future<void> _disconnect(Connection connection, Disposition disposition) =>
+      _worker.enqueueRequest(DisconnectRequest(connection.hCard, disposition));
 }
 
 class PcscCard {
-  int _hCard;
+  final Connection _connection;
+  final PcscContext _context;
 
-  PcscCard(this._hCard);
+  PcscCard._internal(this._connection, this._context);
 
   // TODO: add transactions
 
-  Future<void> disconnect() async {}
+  Future<Uint8List> transmit(Uint8List data) async {
+    final transData = TransferableTypedData.fromList([data]);
+    final response = await _context._transmit(_connection, transData);
+    return response.materialize().asUint8List();
+  }
+
+  Future<void> disconnect(Disposition disposition) =>
+      _context._disconnect(_connection, disposition);
 }

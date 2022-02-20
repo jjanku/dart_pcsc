@@ -121,6 +121,9 @@ class PcscContext {
 
   CancelableCompleter<List<String>>? _waitCompleter;
 
+  // TODO: disallow concurrent async ops on context?
+  // maybe we could perform some operations on the main isolate this way
+
   Future<void> establish(Scope scope) async {
     await _worker.start();
     _hContext = await _worker.enqueueRequest(EstablishRequest(scope));
@@ -147,6 +150,9 @@ class PcscContext {
     final initStates = List<int>.filled(readers.length, SCARD_STATE_UNAWARE);
     final request = WaitRequest(readers, initStates);
 
+    // this loop is on the main isolate and infinite pcsc timeout is not used,
+    // otherwise there might be a race where SCardCancel is called before
+    // the operation starts
     while (!completer.isCanceled) {
       late List<int> newStates;
       try {

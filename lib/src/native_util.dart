@@ -12,6 +12,8 @@ String _pcscLibName() {
 
 PcscLib pcscLibOpen() => PcscLib(DynamicLibrary.open(_pcscLibName()));
 
+late final pcscLib = pcscLibOpen();
+
 Iterable<String> multiStringToDart(Pointer<Utf8> multiString) sync* {
   while (multiString.cast<Int8>().value != 0) {
     final length = multiString.length;

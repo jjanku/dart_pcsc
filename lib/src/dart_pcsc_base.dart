@@ -9,8 +9,6 @@ import 'generated/pcsc_lib.dart';
 import 'native_util.dart';
 import 'worker.dart';
 
-late final _pcscLib = pcscLibOpen();
-
 class EstablishRequest {
   final Scope scope;
   EstablishRequest(this.scope);
@@ -63,7 +61,7 @@ class ContextWorkerThread extends WorkerThread {
     // FIXME: resource cleanup when isolate killed?
     return using((alloc) {
       final phContext = alloc<SCARDCONTEXT>();
-      okOrThrow(_pcscLib.SCardEstablishContext(
+      okOrThrow(pcscLib.SCardEstablishContext(
           scope.value, nullptr, nullptr, phContext));
       _hContext = phContext.value;
       return _hContext;
@@ -71,19 +69,19 @@ class ContextWorkerThread extends WorkerThread {
   }
 
   void _release() {
-    okOrThrow(_pcscLib.SCardReleaseContext(_hContext));
+    okOrThrow(pcscLib.SCardReleaseContext(_hContext));
   }
 
   List<String> _listReaders() {
     return using((alloc) {
       final pcchReaders = alloc<DWORD>();
       okOrThrow(
-          _pcscLib.SCardListReaders(_hContext, nullptr, nullptr, pcchReaders));
+          pcscLib.SCardListReaders(_hContext, nullptr, nullptr, pcchReaders));
 
       if (pcchReaders.value == 0) return [];
 
       final mszReaders = alloc<Int8>(pcchReaders.value);
-      okOrThrow(_pcscLib.SCardListReaders(
+      okOrThrow(pcscLib.SCardListReaders(
           _hContext, nullptr, mszReaders, pcchReaders));
 
       return multiStringToDart(mszReaders.cast<Utf8>()).toList();
@@ -105,7 +103,7 @@ class ContextWorkerThread extends WorkerThread {
       }
 
       okOrThrow(
-          _pcscLib.SCardGetStatusChange(_hContext, timeout, pStates, length));
+          pcscLib.SCardGetStatusChange(_hContext, timeout, pStates, length));
 
       List<int> newStates = [];
       for (var i = 0; i < length; i++) {
@@ -137,6 +135,6 @@ class PcscContext {
   // void waitForCard() {}
 
   void cancel() {
-    okOrThrow(_pcscLib.SCardCancel(_hContext));
+    okOrThrow(pcscLib.SCardCancel(_hContext));
   }
 }

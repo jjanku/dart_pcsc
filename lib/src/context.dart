@@ -28,6 +28,13 @@ class WaitRequest {
   }
 }
 
+class ConnectRequest {
+  final String reader;
+  final ShareMode mode;
+  final Protocol protocol;
+  const ConnectRequest(this.reader, this.mode, this.protocol);
+}
+
 class ContextWorkerThread extends WorkerThread {
   late final int _hContext;
 
@@ -45,6 +52,9 @@ class ContextWorkerThread extends WorkerThread {
           message.readers,
           message.states,
         );
+      }
+      if (message is ConnectRequest) {
+        return _connect(message.reader, message.mode, message.protocol);
       }
     } on PcscException catch (e) {
       // send back as a result of the future,
@@ -111,6 +121,19 @@ class ContextWorkerThread extends WorkerThread {
         newStates.add(pStates[i].dwEventState);
       }
       return newStates;
+    });
+  }
+
+  int _connect(String reader, ShareMode mode, Protocol protocol) {
+    return using((alloc) {
+      final szReader = reader.toNativeUtf8(allocator: alloc).cast<Int8>();
+      final phCard = alloc<SCARDHANDLE>();
+      final pdwActiveProtocol = alloc<DWORD>();
+
+      okOrThrow(pcscLib.SCardConnect(_hContext, szReader, mode.value,
+          protocol.value, phCard, pdwActiveProtocol));
+
+      return phCard.value;
     });
   }
 }

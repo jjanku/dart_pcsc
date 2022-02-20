@@ -142,22 +142,35 @@ class PcscContext {
     final request = WaitRequest(readers, initStates);
 
     while (!completer.isCanceled) {
-      // FIXME: handle exceptions?
-      List<int> newStates = await _worker.enqueueRequest(request);
+      late List<int> newStates;
+      try {
+        newStates = await _worker.enqueueRequest(request);
+      } on CancelledException {
+        break;
+      } on TimeoutException {
+        // no change, try again
+        continue;
+      } on Exception catch (e) {
+        // FIXME: ignore more exceptions?
+        completer.completeError(e);
+        break;
+      }
 
       List<String> satisfied = [];
       for (int i = 0; i < readers.length; i++) {
-        if (newStates[i] == state) {
+        if (newStates[i] & state != 0) {
           satisfied.add(readers[i]);
         }
       }
       if (satisfied.isNotEmpty) {
         completer.complete(satisfied);
-        return;
+        break;
       }
 
       request.states = newStates;
     }
+
+    _waitCompleter = null;
   }
 
   CancelableOperation<List<String>> _waitForState(
@@ -178,7 +191,9 @@ class PcscContext {
     return _waitForState([r'\\?PnP?\Notification'], SCARD_STATE_CHANGED);
   }
 
-  // void waitForCard() {}
+  CancelableOperation<List<String>> waitForCard(List<String> readers) {
+    return _waitForState(readers, SCARD_STATE_PRESENT);
+  }
 
   void _cancel() {
     okOrThrow(pcscLib.SCardCancel(_hContext));

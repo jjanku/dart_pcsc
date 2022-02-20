@@ -238,4 +238,26 @@ class PcscContext {
     okOrThrow(pcscLib.SCardCancel(_hContext));
     _waitCompleter = null;
   }
+
+  Future<PcscCard> connect(
+    String reader,
+    ShareMode mode,
+    Protocol protocol,
+  ) async {
+    int hCard = await _worker.enqueueRequest(
+      ConnectRequest(reader, mode, protocol),
+    );
+    // FIXME: hide this constructor?
+    return PcscCard(hCard);
+  }
+}
+
+class PcscCard {
+  int _hCard;
+
+  PcscCard(this._hCard);
+
+  // TODO: add transactions
+
+  Future<void> disconnect() async {}
 }

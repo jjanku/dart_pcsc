@@ -158,10 +158,29 @@ String errorCodeToString(int error) {
 
 class PcscException implements Exception {
   final int errorCode;
-  PcscException(this.errorCode);
+
+  PcscException._internal(this.errorCode);
+  factory PcscException(int errorCode) {
+    switch (errorCode) {
+      case SCARD_E_TIMEOUT:
+        return TimeoutException();
+      case SCARD_E_CANCELLED:
+        return CancelledException();
+      default:
+        return PcscException._internal(errorCode);
+    }
+  }
 
   @override
   String toString() => errorCodeToString(errorCode);
+}
+
+class TimeoutException extends PcscException {
+  TimeoutException() : super._internal(SCARD_E_TIMEOUT);
+}
+
+class CancelledException extends PcscException {
+  CancelledException() : super._internal(SCARD_E_CANCELLED);
 }
 
 void okOrThrow(int result) {

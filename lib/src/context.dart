@@ -12,12 +12,16 @@ import 'worker.dart';
 
 class EstablishRequest {
   final Scope scope;
-  EstablishRequest(this.scope);
+  const EstablishRequest(this.scope);
 }
 
-class ReleaseRequest {}
+class ReleaseRequest {
+  const ReleaseRequest();
+}
 
-class ListRequest {}
+class ListRequest {
+  const ListRequest();
+}
 
 class WaitRequest {
   final List<String> readers;
@@ -153,13 +157,13 @@ class PcscContext {
   }
 
   Future<void> release() async {
-    await _worker.enqueueRequest(ReleaseRequest());
+    await _worker.enqueueRequest(const ReleaseRequest());
     _worker.stop();
   }
 
   Future<List<String>> listReaders() async {
     try {
-      return await _worker.enqueueRequest(ListRequest());
+      return await _worker.enqueueRequest(const ListRequest());
     } on NoReaderException {
       return [];
     }

@@ -1,5 +1,4 @@
 import 'package:dart_pcsc/dart_pcsc.dart';
-import 'package:dart_pcsc/src/constants.dart';
 import 'package:test/test.dart';
 
 void main() {

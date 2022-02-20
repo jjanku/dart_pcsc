@@ -166,6 +166,8 @@ class PcscException implements Exception {
         return TimeoutException();
       case SCARD_E_CANCELLED:
         return CancelledException();
+      case SCARD_E_NO_READERS_AVAILABLE:
+        return NoReaderException();
       default:
         return PcscException._internal(errorCode);
     }
@@ -181,6 +183,10 @@ class TimeoutException extends PcscException {
 
 class CancelledException extends PcscException {
   CancelledException() : super._internal(SCARD_E_CANCELLED);
+}
+
+class NoReaderException extends PcscException {
+  NoReaderException() : super._internal(SCARD_E_NO_READERS_AVAILABLE);
 }
 
 void okOrThrow(int result) {

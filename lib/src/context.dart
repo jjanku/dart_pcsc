@@ -131,7 +131,13 @@ class PcscContext {
     _worker.stop();
   }
 
-  Future<List<String>> listReaders() => _worker.enqueueRequest(ListRequest());
+  Future<List<String>> listReaders() async {
+    try {
+      return await _worker.enqueueRequest(ListRequest());
+    } on NoReaderException {
+      return [];
+    }
+  }
 
   void _completeOnState(
     List<String> readers,

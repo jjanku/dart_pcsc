@@ -5,12 +5,15 @@ import 'package:ffi/ffi.dart';
 
 import 'generated/pcsc_lib.dart';
 
-String _pcscLibName() {
-  if (Platform.isLinux) return 'libpcsclite.so.1';
+PcscLib pcscLibOpen() {
+  if (Platform.isLinux) {
+    return PcscLib(DynamicLibrary.open('libpcsclite.so.1'));
+  }
+  if (Platform.isWindows) {
+    return PcscLibWin(DynamicLibrary.open('winscard.dll'));
+  }
   throw UnsupportedError('Platform unsupported');
 }
-
-PcscLib pcscLibOpen() => PcscLib(DynamicLibrary.open(_pcscLibName()));
 
 late final pcscLib = pcscLibOpen();
 

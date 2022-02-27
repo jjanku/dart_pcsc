@@ -3,6 +3,5 @@
 /// More dartdocs go here.
 library dart_pcsc;
 
+export 'src/constants.dart';
 export 'src/dart_pcsc_base.dart';
-
-// TODO: Export any libraries intended for clients of this package.

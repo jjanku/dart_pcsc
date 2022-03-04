@@ -122,7 +122,7 @@ class ContextWorkerThread extends WorkerThread {
 
       if (pcchReaders.value == 0) return [];
 
-      final mszReaders = alloc<Int8>(pcchReaders.value);
+      final mszReaders = alloc<Char>(pcchReaders.value);
       okOrThrow(pcscLib.SCardListReaders(
           _hContext, nullptr, mszReaders, pcchReaders));
 
@@ -157,7 +157,7 @@ class ContextWorkerThread extends WorkerThread {
 
   Connection _connect(String reader, ShareMode mode, Protocol protocol) {
     return using((alloc) {
-      final szReader = reader.toNativeUtf8(allocator: alloc).cast<Int8>();
+      final szReader = reader.toNativeUtf8(allocator: alloc).cast<Char>();
       final phCard = alloc<SCARDHANDLE>();
       final pdwActiveProtocol = alloc<DWORD>();
 
@@ -184,8 +184,17 @@ class ContextWorkerThread extends WorkerThread {
       final pbSendBuffer = alloc<Uint8>(data.length);
       pbSendBuffer.asTypedList(data.length).setAll(0, data);
 
-      okOrThrow(pcscLib.SCardTransmit(hCard, pioSendPci, pbSendBuffer,
-          data.length, nullptr, pbRecvBuffer, pcbRecvLength));
+      okOrThrow(
+        pcscLib.SCardTransmit(
+          hCard,
+          pioSendPci,
+          pbSendBuffer.cast<UnsignedChar>(),
+          data.length,
+          nullptr,
+          pbRecvBuffer.cast<UnsignedChar>(),
+          pcbRecvLength,
+        ),
+      );
 
       final recvBufferList = pbRecvBuffer.asTypedList(pcbRecvLength.value);
       return TransferableTypedData.fromList([recvBufferList]);

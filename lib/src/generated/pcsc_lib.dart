@@ -407,6 +407,17 @@ class PcscLib {
           LONG Function(SCARDHANDLE, DWORD, LPCBYTE, DWORD)>>('SCardSetAttrib');
   late final _SCardSetAttrib =
       _SCardSetAttribPtr.asFunction<int Function(int, int, LPCBYTE, int)>();
+
+  late final addresses = _SymbolAddresses(this);
+}
+
+class _SymbolAddresses {
+  final PcscLib _library;
+  _SymbolAddresses(this._library);
+  ffi.Pointer<SCARD_IO_REQUEST> get g_rgSCardT0Pci => _library._g_rgSCardT0Pci;
+  ffi.Pointer<SCARD_IO_REQUEST> get g_rgSCardT1Pci => _library._g_rgSCardT1Pci;
+  ffi.Pointer<SCARD_IO_REQUEST> get g_rgSCardRawPci =>
+      _library._g_rgSCardRawPci;
 }
 
 class SCARD_READERSTATE extends ffi.Struct {

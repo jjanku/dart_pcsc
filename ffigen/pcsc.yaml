@@ -5,3 +5,7 @@ headers:
     - 'include/pcsc/winscard.h'
 preamble: |
   // ignore_for_file: camel_case_types, non_constant_identifier_names, constant_identifier_names
+functions:
+  symbol-address:
+    include:
+      - 'g_rgSCard.*Pci'

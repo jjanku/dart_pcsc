@@ -23,14 +23,14 @@ Iterable<String> multiStringToDart(Pointer<Utf8> multiString) sync* {
 }
 
 extension CardIoRequest on PcscLib {
-  SCARD_IO_REQUEST getIoRequest(int protocol) {
+  Pointer<SCARD_IO_REQUEST> getIoRequest(int protocol) {
     switch (protocol) {
       case SCARD_PROTOCOL_T0:
-        return g_rgSCardT0Pci;
+        return addresses.g_rgSCardT0Pci;
       case SCARD_PROTOCOL_T1:
-        return g_rgSCardT1Pci;
+        return addresses.g_rgSCardT1Pci;
       case SCARD_PROTOCOL_RAW:
-        return g_rgSCardRawPci;
+        return addresses.g_rgSCardRawPci;
       default:
         throw ArgumentError('Unknown protocol');
     }

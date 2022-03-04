@@ -178,12 +178,7 @@ class ContextWorkerThread extends WorkerThread {
       pcbRecvLength.value = MAX_BUFFER_SIZE_EXTENDED;
       final pbRecvBuffer = alloc<Uint8>(pcbRecvLength.value);
 
-      // FIXME: maybe just edit the auto-generated bindings and expose
-      // the struct pointer?
-      final pioSendPci = alloc<SCARD_IO_REQUEST>();
-      SCARD_IO_REQUEST ioSendPci = pcscLib.getIoRequest(activeProtocol);
-      pioSendPci.ref.cbPciLength = ioSendPci.cbPciLength;
-      pioSendPci.ref.dwProtocol = ioSendPci.dwProtocol;
+      final pioSendPci = pcscLib.getIoRequest(activeProtocol);
 
       final data = transData.materialize().asUint8List();
       final pbSendBuffer = alloc<Uint8>(data.length);

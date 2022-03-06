@@ -212,6 +212,7 @@ class PcscContext {
   }
 
   Future<void> release() async {
+    _waitCompleter?.operation.cancel();
     await _worker.enqueueRequest(const ReleaseRequest());
     _worker.stop();
   }

@@ -198,15 +198,18 @@ class ContextWorkerThread extends WorkerThread {
 }
 
 class PcscContext {
+  final Scope scope;
   late final int _hContext;
   final _worker = Worker(ContextWorkerThread.entryPoint);
 
   CancelableCompleter<List<String>>? _waitCompleter;
 
+  PcscContext(this.scope);
+
   // TODO: disallow concurrent async ops on context?
   // maybe we could perform some operations on the main isolate this way
 
-  Future<void> establish(Scope scope) async {
+  Future<void> establish() async {
     await _worker.start();
     _hContext = await _worker.enqueueRequest(EstablishRequest(scope));
   }

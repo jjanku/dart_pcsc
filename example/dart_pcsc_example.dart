@@ -3,9 +3,9 @@ import 'dart:typed_data';
 import 'package:dart_pcsc/dart_pcsc.dart';
 
 void main() async {
-  final context = PcscContext();
+  final context = PcscContext(Scope.user);
   try {
-    await context.establish(Scope.user);
+    await context.establish();
 
     List<String> readers = await context.listReaders();
 

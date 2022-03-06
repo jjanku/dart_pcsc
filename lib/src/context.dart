@@ -272,6 +272,9 @@ class PcscContext {
     List<String> readers,
     int state,
   ) {
+    if (readers.isEmpty) {
+      throw ArgumentError('Cannot wait for nothing');
+    }
     if (_waitCompleter != null) {
       throw StateError('Parallel wait operations not allowed');
     }

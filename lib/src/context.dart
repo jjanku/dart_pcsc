@@ -200,7 +200,10 @@ class ContextWorkerThread extends WorkerThread {
 class PcscContext {
   final Scope scope;
   late final int _hContext;
-  final _worker = Worker(ContextWorkerThread.entryPoint);
+  final _worker = Worker(
+    ContextWorkerThread.entryPoint,
+    debugName: 'pcsc context worker',
+  );
 
   CancelableCompleter<List<String>>? _waitCompleter;
 

@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'generated/pcsc_lib.dart';
 
 String errorCodeToString(int error) {
@@ -191,6 +193,9 @@ class NoReaderException extends PcscException {
 }
 
 void okOrThrow(int result) {
+  // constants extraced using ffigen are positive dart signed 64-bit ints,
+  // pcsc functions return LONG which is unsigned 32-bit ints
+  result = result.toUnsigned(8 * sizeOf<LONG>());
   if (result == SCARD_S_SUCCESS) return;
   throw PcscException(result);
 }

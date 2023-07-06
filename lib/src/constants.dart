@@ -1,43 +1,41 @@
 import 'generated/pcsc_lib.dart';
 
-// TODO: Dart does not support enum with values;
-// if there's a better way, I'm all ears
-class Scope {
-  final int value;
-  const Scope._(this.value);
+enum Scope {
+  user(SCARD_SCOPE_USER),
+  terminal(SCARD_SCOPE_TERMINAL),
+  system(SCARD_SCOPE_SYSTEM),
+  global(SCARD_SCOPE_GLOBAL);
 
-  static const user = Scope._(SCARD_SCOPE_USER);
-  static const terminal = Scope._(SCARD_SCOPE_TERMINAL);
-  static const system = Scope._(SCARD_SCOPE_SYSTEM);
-  static const global = Scope._(SCARD_SCOPE_GLOBAL);
+  final int value;
+  const Scope(this.value);
 }
 
-class Protocol {
-  final int value;
-  const Protocol._(this.value);
+enum Protocol {
+  t0(SCARD_PROTOCOL_T0),
+  t1(SCARD_PROTOCOL_T1),
+  raw(SCARD_PROTOCOL_RAW),
+  t15(SCARD_PROTOCOL_T15),
+  any(SCARD_PROTOCOL_ANY);
 
-  static const t0 = Protocol._(SCARD_PROTOCOL_T0);
-  static const t1 = Protocol._(SCARD_PROTOCOL_T1);
-  static const raw = Protocol._(SCARD_PROTOCOL_RAW);
-  static const t15 = Protocol._(SCARD_PROTOCOL_T15);
-  static const any = Protocol._(SCARD_PROTOCOL_ANY);
+  final int value;
+  const Protocol(this.value);
 }
 
-class ShareMode {
-  final int value;
-  const ShareMode._(this.value);
+enum ShareMode {
+  exclusive(SCARD_SHARE_EXCLUSIVE),
+  shared(SCARD_SHARE_SHARED),
+  direct(SCARD_SHARE_DIRECT);
 
-  static const exclusive = ShareMode._(SCARD_SHARE_EXCLUSIVE);
-  static const shared = ShareMode._(SCARD_SHARE_SHARED);
-  static const direct = ShareMode._(SCARD_SHARE_DIRECT);
+  final int value;
+  const ShareMode(this.value);
 }
 
-class Disposition {
-  final int value;
-  const Disposition._(this.value);
+enum Disposition {
+  leaveCard(SCARD_LEAVE_CARD),
+  resetCard(SCARD_RESET_CARD),
+  unpowerCard(SCARD_UNPOWER_CARD),
+  ejectCard(SCARD_EJECT_CARD);
 
-  static const leaveCard = Disposition._(SCARD_LEAVE_CARD);
-  static const resetCard = Disposition._(SCARD_RESET_CARD);
-  static const unpowerCard = Disposition._(SCARD_UNPOWER_CARD);
-  static const ejectCard = Disposition._(SCARD_EJECT_CARD);
+  final int value;
+  const Disposition(this.value);
 }

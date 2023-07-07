@@ -1,240 +1,33 @@
-import 'dart:ffi';
-import 'dart:isolate';
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:async/async.dart';
-import 'package:ffi/ffi.dart';
 
 import 'constants.dart';
 import 'exceptions.dart';
 import 'generated/pcsc_lib.dart';
-import 'native_util.dart';
-import 'worker.dart';
-
-class EstablishRequest {
-  final Scope scope;
-  const EstablishRequest(this.scope);
-}
-
-class ReleaseRequest {
-  const ReleaseRequest();
-}
-
-class ListRequest {
-  const ListRequest();
-}
-
-class WaitRequest {
-  final List<String> readers;
-  List<int> states;
-  final int timeout;
-  WaitRequest(this.readers, this.states, {this.timeout = 1000}) {
-    assert(readers.length == states.length);
-  }
-}
-
-class ConnectRequest {
-  final String reader;
-  final ShareMode mode;
-  final Protocol protocol;
-  const ConnectRequest(this.reader, this.mode, this.protocol);
-}
-
-class Connection {
-  final int hCard;
-  final int activeProtocol;
-  const Connection(this.hCard, this.activeProtocol);
-}
-
-class TransmitRequest {
-  final Connection connection;
-  final TransferableTypedData data;
-  TransmitRequest(this.connection, this.data);
-}
-
-class DisconnectRequest {
-  final int hCard;
-  final Disposition disposition;
-  const DisconnectRequest(this.hCard, this.disposition);
-}
-
-class ContextWorkerThread extends WorkerThread {
-  late final int _hContext;
-
-  ContextWorkerThread(SendPort sendPort) : super(sendPort);
-
-  @override
-  handleMessage(message) {
-    try {
-      if (message is EstablishRequest) return _establish(message.scope);
-      if (message is ReleaseRequest) return _release();
-      if (message is ListRequest) return _listReaders();
-      if (message is WaitRequest) {
-        return _waitForChange(
-          message.timeout,
-          message.readers,
-          message.states,
-        );
-      }
-
-      if (message is ConnectRequest) {
-        return _connect(message.reader, message.mode, message.protocol);
-      }
-      if (message is TransmitRequest) {
-        return _transmit(message.connection.hCard,
-            message.connection.activeProtocol, message.data);
-      }
-      if (message is DisconnectRequest) {
-        return _disconnect(message.hCard, message.disposition);
-      }
-    } on PcscException catch (e) {
-      // send back as a result of the future,
-      // other errors are thrown inside the worker
-      return e;
-    }
-    throw UnimplementedError();
-  }
-
-  static void entryPoint(SendPort sendPort) {
-    ContextWorkerThread(sendPort);
-  }
-
-  int _establish(Scope scope) {
-    // FIXME: resource cleanup when isolate killed?
-    return using((alloc) {
-      final phContext = alloc<SCARDCONTEXT>();
-      okOrThrow(pcscLib.SCardEstablishContext(
-          scope.value, nullptr, nullptr, phContext));
-      _hContext = phContext.value;
-      return _hContext;
-    });
-  }
-
-  void _release() {
-    okOrThrow(pcscLib.SCardReleaseContext(_hContext));
-  }
-
-  List<String> _listReaders() {
-    return using((alloc) {
-      final pcchReaders = alloc<DWORD>();
-      okOrThrow(
-          pcscLib.SCardListReaders(_hContext, nullptr, nullptr, pcchReaders));
-
-      if (pcchReaders.value == 0) return [];
-
-      final mszReaders = alloc<Char>(pcchReaders.value);
-      okOrThrow(pcscLib.SCardListReaders(
-          _hContext, nullptr, mszReaders, pcchReaders));
-
-      return multiStringToDart(mszReaders.cast<Utf8>()).toList();
-    });
-  }
-
-  List<int> _waitForChange(
-    int timeout,
-    List<String> readers,
-    List<int> states,
-  ) {
-    return using((alloc) {
-      final length = readers.length;
-
-      final pStates = alloc<SCARD_READERSTATE>(length);
-      for (var i = 0; i < length; i++) {
-        pStates[i].szReader = readers[i].toNativeUtf8(allocator: alloc).cast();
-        pStates[i].dwCurrentState = states[i];
-      }
-
-      okOrThrow(
-          pcscLib.SCardGetStatusChange(_hContext, timeout, pStates, length));
-
-      List<int> newStates = [];
-      for (var i = 0; i < length; i++) {
-        newStates.add(pStates[i].dwEventState);
-      }
-      return newStates;
-    });
-  }
-
-  Connection _connect(String reader, ShareMode mode, Protocol protocol) {
-    return using((alloc) {
-      final szReader = reader.toNativeUtf8(allocator: alloc).cast<Char>();
-      final phCard = alloc<SCARDHANDLE>();
-      final pdwActiveProtocol = alloc<DWORD>();
-
-      okOrThrow(pcscLib.SCardConnect(_hContext, szReader, mode.value,
-          protocol.value, phCard, pdwActiveProtocol));
-
-      return Connection(phCard.value, pdwActiveProtocol.value);
-    });
-  }
-
-  TransferableTypedData _transmit(
-    int hCard,
-    int activeProtocol,
-    TransferableTypedData transData,
-  ) {
-    return using((alloc) {
-      final pcbRecvLength = alloc<DWORD>();
-      pcbRecvLength.value = MAX_BUFFER_SIZE_EXTENDED;
-      final pbRecvBuffer = alloc<Uint8>(pcbRecvLength.value);
-
-      final pioSendPci = pcscLib.getIoRequest(activeProtocol);
-
-      final data = transData.materialize().asUint8List();
-      final pbSendBuffer = alloc<Uint8>(data.length);
-      pbSendBuffer.asTypedList(data.length).setAll(0, data);
-
-      okOrThrow(
-        pcscLib.SCardTransmit(
-          hCard,
-          pioSendPci,
-          pbSendBuffer.cast<UnsignedChar>(),
-          data.length,
-          nullptr,
-          pbRecvBuffer.cast<UnsignedChar>(),
-          pcbRecvLength,
-        ),
-      );
-
-      final recvBufferList = pbRecvBuffer.asTypedList(pcbRecvLength.value);
-      return TransferableTypedData.fromList([recvBufferList]);
-    });
-  }
-
-  void _disconnect(int hCard, Disposition disposition) {
-    pcscLib.SCardDisconnect(hCard, disposition.value);
-  }
-}
+import 'wrapper.dart' as pcsc;
 
 class PcscContext {
   final Scope scope;
-  late final int _hContext;
-  final _worker = Worker(
-    ContextWorkerThread.entryPoint,
-    debugName: 'pcsc context worker',
-  );
 
+  late final int _hContext;
   CancelableCompleter<List<String>>? _waitCompleter;
 
   PcscContext(this.scope);
 
-  // TODO: disallow concurrent async ops on context?
-  // maybe we could perform some operations on the main isolate this way
-
   Future<void> establish() async {
-    await _worker.start();
-    _hContext = await _worker.enqueueRequest(EstablishRequest(scope));
+    _hContext = await pcsc.establish(scope);
   }
 
   Future<void> release() async {
-    _waitCompleter?.operation.cancel();
-    await _worker.enqueueRequest(const ReleaseRequest());
-    _worker.stop();
+    await _waitCompleter?.operation.cancel();
+    await pcsc.release(_hContext);
   }
 
   Future<List<String>> listReaders() async {
     try {
-      return await _worker.enqueueRequest(const ListRequest());
+      return await pcsc.listReaders(_hContext);
     } on NoReaderException {
       return [];
     }
@@ -245,8 +38,7 @@ class PcscContext {
     int state,
     CancelableCompleter<List<String>> completer,
   ) async {
-    final initStates = List<int>.filled(readers.length, SCARD_STATE_UNAWARE);
-    final request = WaitRequest(readers, initStates);
+    var states = List<int>.filled(readers.length, SCARD_STATE_UNAWARE);
 
     // this loop is on the main isolate and infinite pcsc timeout is not used,
     // otherwise there might be a race where SCardCancel is called before
@@ -254,7 +46,7 @@ class PcscContext {
     while (!completer.isCanceled) {
       late List<int> newStates;
       try {
-        newStates = await _worker.enqueueRequest(request);
+        newStates = await pcsc.waitForChange(_hContext, 1000, readers, states);
       } on CancelledException {
         break;
       } on TimeoutException {
@@ -277,7 +69,7 @@ class PcscContext {
         break;
       }
 
-      request.states = newStates;
+      states = newStates;
     }
 
     _waitCompleter = null;
@@ -308,8 +100,8 @@ class PcscContext {
     return _waitForState(readers, SCARD_STATE_PRESENT);
   }
 
-  void _cancel() {
-    okOrThrow(pcscLib.SCardCancel(_hContext));
+  Future<void> _cancel() async {
+    await pcsc.cancel(_hContext);
     _waitCompleter = null;
   }
 
@@ -318,36 +110,22 @@ class PcscContext {
     ShareMode mode,
     Protocol protocol,
   ) async {
-    Connection connection = await _worker.enqueueRequest(
-      ConnectRequest(reader, mode, protocol),
-    );
-    return PcscCard._internal(connection, this);
+    final connection = await pcsc.connect(_hContext, reader, mode, protocol);
+    return PcscCard._internal(connection.hCard, connection.activeProtocol);
   }
-
-  Future<TransferableTypedData> _transmit(
-    Connection connection,
-    TransferableTypedData data,
-  ) =>
-      _worker.enqueueRequest(TransmitRequest(connection, data));
-
-  Future<void> _disconnect(Connection connection, Disposition disposition) =>
-      _worker.enqueueRequest(DisconnectRequest(connection.hCard, disposition));
 }
 
 class PcscCard {
-  final Connection _connection;
-  final PcscContext _context;
+  final int _hCard;
+  final int activeProtocol;
 
-  PcscCard._internal(this._connection, this._context);
+  PcscCard._internal(this._hCard, this.activeProtocol);
 
   // TODO: add transactions
 
-  Future<Uint8List> transmit(Uint8List data) async {
-    final transData = TransferableTypedData.fromList([data]);
-    final response = await _context._transmit(_connection, transData);
-    return response.materialize().asUint8List();
-  }
+  Future<Uint8List> transmit(Uint8List data) =>
+      pcsc.transmit(_hCard, activeProtocol, data);
 
   Future<void> disconnect(Disposition disposition) =>
-      _context._disconnect(_connection, disposition);
+      pcsc.disconnect(_hCard, disposition);
 }

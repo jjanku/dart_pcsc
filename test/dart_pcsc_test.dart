@@ -1,4 +1,4 @@
-import 'package:dart_pcsc/dart_pcsc.dart';
+// import 'package:dart_pcsc/dart_pcsc.dart';
 import 'package:test/test.dart';
 
 void main() {

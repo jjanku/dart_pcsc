@@ -15,7 +15,7 @@ PcscLib pcscLibOpen() {
   throw UnsupportedError('Platform unsupported');
 }
 
-late final pcscLib = pcscLibOpen();
+final pcscLib = pcscLibOpen();
 
 Iterable<String> multiStringToDart(Pointer<Utf8> multiString) sync* {
   while (multiString.cast<Int8>().value != 0) {

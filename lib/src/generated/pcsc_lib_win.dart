@@ -31,7 +31,7 @@ class PcscLibWin extends PcscLib {
 
   @override
   late final _SCardListReadersPtr = _lookup<
-      ffi.NativeFunction<
-          LONG Function(
-              SCARDCONTEXT, LPCSTR, LPSTR, LPDWORD)>>('SCardListReadersA');
+          ffi
+          .NativeFunction<LONG Function(SCARDCONTEXT, LPCSTR, LPSTR, LPDWORD)>>(
+      'SCardListReadersA');
 }

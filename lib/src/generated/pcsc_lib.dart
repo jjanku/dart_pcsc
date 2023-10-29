@@ -337,9 +337,9 @@ class PcscLib {
   }
 
   late final _SCardListReadersPtr = _lookup<
-      ffi.NativeFunction<
-          LONG Function(
-              SCARDCONTEXT, LPCSTR, LPSTR, LPDWORD)>>('SCardListReaders');
+          ffi
+          .NativeFunction<LONG Function(SCARDCONTEXT, LPCSTR, LPSTR, LPDWORD)>>(
+      'SCardListReaders');
   late final _SCardListReaders = _SCardListReadersPtr.asFunction<
       int Function(int, LPCSTR, LPSTR, LPDWORD)>();
 
@@ -386,9 +386,9 @@ class PcscLib {
   }
 
   late final _SCardGetAttribPtr = _lookup<
-      ffi.NativeFunction<
-          LONG Function(
-              SCARDHANDLE, DWORD, LPBYTE, LPDWORD)>>('SCardGetAttrib');
+          ffi
+          .NativeFunction<LONG Function(SCARDHANDLE, DWORD, LPBYTE, LPDWORD)>>(
+      'SCardGetAttrib');
   late final _SCardGetAttrib =
       _SCardGetAttribPtr.asFunction<int Function(int, int, LPBYTE, LPDWORD)>();
 
@@ -407,8 +407,9 @@ class PcscLib {
   }
 
   late final _SCardSetAttribPtr = _lookup<
-      ffi.NativeFunction<
-          LONG Function(SCARDHANDLE, DWORD, LPCBYTE, DWORD)>>('SCardSetAttrib');
+          ffi
+          .NativeFunction<LONG Function(SCARDHANDLE, DWORD, LPCBYTE, DWORD)>>(
+      'SCardSetAttrib');
   late final _SCardSetAttrib =
       _SCardSetAttribPtr.asFunction<int Function(int, int, LPCBYTE, int)>();
 

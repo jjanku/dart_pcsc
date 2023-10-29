@@ -38,15 +38,18 @@ class PcscContext {
     int state,
     CancelableCompleter<List<String>> completer,
   ) async {
-    var states = List<int>.filled(readers.length, SCARD_STATE_UNAWARE);
+    var readerStates = {
+      for (var reader in readers) reader: SCARD_STATE_UNAWARE
+    };
 
     // this loop is on the main isolate and infinite pcsc timeout is not used,
     // otherwise there might be a race where SCardCancel is called before
     // the operation starts
     while (!completer.isCanceled) {
-      late List<int> newStates;
+      late Map<String, int> newReaderStates;
       try {
-        newStates = await pcsc.waitForChange(_hContext, 1000, readers, states);
+        newReaderStates = await pcsc.waitForChange(
+            _hContext, const Duration(seconds: 1), readerStates);
       } on CancelledException {
         break;
       } on TimeoutException {
@@ -58,18 +61,17 @@ class PcscContext {
         break;
       }
 
-      List<String> satisfied = [];
-      for (int i = 0; i < readers.length; i++) {
-        if (newStates[i] & state != 0) {
-          satisfied.add(readers[i]);
-        }
-      }
+      final satisfied = [
+        for (var MapEntry(key: reader, value: newState)
+            in newReaderStates.entries)
+          if (newState & state != 0) reader
+      ];
       if (satisfied.isNotEmpty) {
         completer.complete(satisfied);
         break;
       }
 
-      states = newStates;
+      readerStates = newReaderStates;
     }
 
     _waitCompleter = null;
@@ -117,7 +119,7 @@ class PcscContext {
 
 class PcscCard {
   final int _hCard;
-  final int activeProtocol;
+  final Protocol activeProtocol;
 
   PcscCard._internal(this._hCard, this.activeProtocol);
 

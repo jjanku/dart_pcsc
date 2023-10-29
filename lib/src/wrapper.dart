@@ -9,13 +9,6 @@ import 'exceptions.dart';
 import 'generated/pcsc_lib.dart';
 import 'native_util.dart';
 
-class Connection {
-  final int hCard;
-  final int activeProtocol;
-
-  const Connection(this.hCard, this.activeProtocol);
-}
-
 extension Wrapper on PcscLib {
   int establish(Scope scope) {
     return using((alloc) {
@@ -49,32 +42,33 @@ extension Wrapper on PcscLib {
     });
   }
 
-  List<int> waitForChange(
+  Map<String, int> waitForChange(
     int hContext,
-    int timeout,
-    List<String> readers,
-    List<int> states,
+    Duration timeout,
+    Map<String, int> readerStates,
   ) {
     return using((alloc) {
-      final length = readers.length;
+      final length = readerStates.length;
 
       final pStates = alloc<SCARD_READERSTATE>(length);
-      for (var i = 0; i < length; i++) {
-        pStates[i].szReader = readers[i].toNativeUtf8(allocator: alloc).cast();
-        pStates[i].dwCurrentState = states[i];
+      for (var (i, MapEntry(key: reader, value: state))
+          in readerStates.entries.indexed) {
+        pStates[i].szReader = reader.toNativeUtf8(allocator: alloc).cast();
+        pStates[i].dwCurrentState = state;
       }
 
-      okOrThrow(SCardGetStatusChange(hContext, timeout, pStates, length));
+      okOrThrow(
+        SCardGetStatusChange(hContext, timeout.inMilliseconds, pStates, length),
+      );
 
-      List<int> newStates = [];
-      for (var i = 0; i < length; i++) {
-        newStates.add(pStates[i].dwEventState);
-      }
-      return newStates;
+      return {
+        for (var (i, reader) in readerStates.keys.indexed)
+          reader: pStates[i].dwEventState
+      };
     });
   }
 
-  Connection connect(
+  ({int hCard, Protocol activeProtocol}) connect(
     int hContext,
     String reader,
     ShareMode mode,
@@ -96,13 +90,16 @@ extension Wrapper on PcscLib {
         ),
       );
 
-      return Connection(phCard.value, pdwActiveProtocol.value);
+      return (
+        hCard: phCard.value,
+        activeProtocol: Protocol.value(pdwActiveProtocol.value),
+      );
     });
   }
 
   Uint8List transmit(
     int hCard,
-    int activeProtocol,
+    Protocol activeProtocol,
     Uint8List data,
   ) {
     return using((alloc) {
@@ -110,7 +107,7 @@ extension Wrapper on PcscLib {
       pcbRecvLength.value = MAX_BUFFER_SIZE_EXTENDED;
       final pbRecvBuffer = alloc<Uint8>(pcbRecvLength.value);
 
-      final pioSendPci = getIoRequest(activeProtocol);
+      final pioSendPci = getIoRequest(activeProtocol.value);
 
       final pbSendBuffer = alloc<Uint8>(data.length);
       pbSendBuffer.asTypedList(data.length).setAll(0, data);
@@ -148,16 +145,16 @@ Future<void> release(int hContext) =>
 Future<List<String>> listReaders(int hContext) =>
     Isolate.run(() => pcscLib.listReaders(hContext));
 
-Future<List<int>> waitForChange(
-        int hContext, int timeout, List<String> readers, List<int> states) =>
-    Isolate.run(
-        () => pcscLib.waitForChange(hContext, timeout, readers, states));
+Future<Map<String, int>> waitForChange(
+        int hContext, Duration timeout, Map<String, int> readerStates) =>
+    Isolate.run(() => pcscLib.waitForChange(hContext, timeout, readerStates));
 
-Future<Connection> connect(
+Future<({int hCard, Protocol activeProtocol})> connect(
         int hContext, String reader, ShareMode mode, Protocol protocol) =>
     Isolate.run(() => pcscLib.connect(hContext, reader, mode, protocol));
 
-Future<Uint8List> transmit(int hCard, int activeProtocol, Uint8List data) =>
+Future<Uint8List> transmit(
+        int hCard, Protocol activeProtocol, Uint8List data) =>
     Isolate.run(() => pcscLib.transmit(hCard, activeProtocol, data));
 
 Future<void> disconnect(int hCard, Disposition disposition) =>

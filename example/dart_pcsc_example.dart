@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:dart_pcsc/dart_pcsc.dart';
 
 void main() async {
-  final context = PcscContext(Scope.user);
+  final context = Context(Scope.user);
   try {
     await context.establish();
 
@@ -19,7 +19,7 @@ void main() async {
     List<String> withCard = await context.waitForCard(readers).value;
 
     print('Connecting to card in ${withCard.first}');
-    PcscCard card = await context.connect(
+    Card card = await context.connect(
       withCard.first,
       ShareMode.shared,
       Protocol.any,

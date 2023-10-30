@@ -8,13 +8,13 @@ import 'exceptions.dart';
 import 'generated/pcsc_lib.dart';
 import 'wrapper.dart' as pcsc;
 
-class PcscContext {
+class Context {
   final Scope scope;
 
   late final int _hContext;
   CancelableCompleter<List<String>>? _waitCompleter;
 
-  PcscContext(this.scope);
+  Context(this.scope);
 
   Future<void> establish() async {
     _hContext = await pcsc.establish(scope);
@@ -107,21 +107,21 @@ class PcscContext {
     _waitCompleter = null;
   }
 
-  Future<PcscCard> connect(
+  Future<Card> connect(
     String reader,
     ShareMode mode,
     Protocol protocol,
   ) async {
     final connection = await pcsc.connect(_hContext, reader, mode, protocol);
-    return PcscCard._internal(connection.hCard, connection.activeProtocol);
+    return Card._internal(connection.hCard, connection.activeProtocol);
   }
 }
 
-class PcscCard {
+class Card {
   final int _hCard;
   final Protocol activeProtocol;
 
-  PcscCard._internal(this._hCard, this.activeProtocol);
+  Card._internal(this._hCard, this.activeProtocol);
 
   // TODO: add transactions
 

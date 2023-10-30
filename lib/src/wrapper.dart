@@ -97,6 +97,14 @@ extension Wrapper on PcscLib {
     });
   }
 
+  Pointer<SCARD_IO_REQUEST> _getIoRequest(Protocol protocol) =>
+      switch (protocol) {
+        Protocol.t0 => addresses.g_rgSCardT0Pci,
+        Protocol.t1 => addresses.g_rgSCardT1Pci,
+        Protocol.raw => addresses.g_rgSCardRawPci,
+        _ => throw ArgumentError('Invalid value'),
+      };
+
   Uint8List transmit(
     int hCard,
     Protocol activeProtocol,
@@ -107,7 +115,7 @@ extension Wrapper on PcscLib {
       pcbRecvLength.value = MAX_BUFFER_SIZE_EXTENDED;
       final pbRecvBuffer = alloc<Uint8>(pcbRecvLength.value);
 
-      final pioSendPci = getIoRequest(activeProtocol.value);
+      final pioSendPci = _getIoRequest(activeProtocol);
 
       final pbSendBuffer = alloc<Uint8>(data.length);
       pbSendBuffer.asTypedList(data.length).setAll(0, data);

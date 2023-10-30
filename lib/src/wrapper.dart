@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -140,6 +141,18 @@ extension Wrapper on PcscLib {
     SCardDisconnect(hCard, disposition.value);
   }
 }
+
+PcscLib pcscLibOpen() {
+  if (Platform.isLinux) {
+    return PcscLib(DynamicLibrary.open('libpcsclite.so.1'));
+  }
+  if (Platform.isWindows) {
+    return PcscLibWin(DynamicLibrary.open('winscard.dll'));
+  }
+  throw UnsupportedError('Platform unsupported');
+}
+
+final pcscLib = pcscLibOpen();
 
 Future<int> establish(Scope scope) =>
     Isolate.run(() => pcscLib.establish(scope));

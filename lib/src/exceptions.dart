@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:io';
 
 import 'generated/pcsc_lib.dart';
 
@@ -78,11 +79,12 @@ String errorCodeToString(int error) {
       return 'The Smart card resource manager is not running.';
     case SCARD_E_SERVICE_STOPPED:
       return 'The Smart card resource manager has shut down.';
-    case SCARD_E_UNEXPECTED:
+    case SCARD_E_UNEXPECTED when Platform.isWindows:
       return 'An unexpected card error has occurred.';
-    // FIXME: difference between pcsc-lite and WinSCard, see
+    // a difference between pcsc-lite and WinSCard, see
     // https://pcsclite.apdu.fr/api/group__API.html
-    case SCARD_E_UNSUPPORTED_FEATURE:
+    case SCARD_E_UNSUPPORTED_FEATURE when !Platform.isWindows:
+    case 0x80100022 when Platform.isWindows:
       return 'This smart card does not support the requested feature.';
     case SCARD_E_ICC_INSTALLATION:
       return 'No primary provider can be found for the smart card.';

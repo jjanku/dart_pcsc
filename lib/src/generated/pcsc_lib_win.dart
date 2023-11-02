@@ -4,7 +4,7 @@ part of 'pcsc_lib.dart';
 
 // TODO: find a cleaner way of doing this
 class PcscLibWin extends PcscLib {
-  PcscLibWin(ffi.DynamicLibrary dynamicLibrary) : super(dynamicLibrary);
+  PcscLibWin(super.dynamicLibrary);
 
   @override
   late final _SCardConnectPtr = _lookup<

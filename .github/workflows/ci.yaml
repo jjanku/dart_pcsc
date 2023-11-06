@@ -19,5 +19,26 @@ jobs:
       - name: Analyze project source
         run: dart analyze
 
+      - name: Install test dependencies
+        # TODO: replace with installation from the pkg manager
+        # once vicc gets fixed
+        run: |
+          sudo apt-get install pcscd libpcsclite-dev help2man
+          git clone https://github.com/frankmorgner/vsmartcard.git
+          cd vsmartcard
+          git submodule update --init --recursive
+          cd virtualsmartcard
+          autoreconf --verbose --install
+          ./configure --sysconfdir=/etc
+          make
+          sudo make install
+          sudo ln -s /usr/local/lib/python3.10/{site,dist}-packages/virtualsmartcard
+          sudo systemctl restart pcscd
+
+      - name: Setup test environment
+        run: |
+          vicc &
+
       - name: Run tests
-        run: dart test
+        # TODO: test on Windows
+        run: dart test -x interactive

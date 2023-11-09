@@ -160,12 +160,12 @@ String errorCodeToString(int error) {
   }
 }
 
-class PcscException implements Exception {
+class CardException implements Exception {
   final int errorCode;
 
-  PcscException._internal(this.errorCode);
+  CardException._internal(this.errorCode);
 
-  factory PcscException(int errorCode) {
+  factory CardException(int errorCode) {
     switch (errorCode) {
       case SCARD_E_TIMEOUT:
         return TimeoutException();
@@ -174,7 +174,7 @@ class PcscException implements Exception {
       case SCARD_E_NO_READERS_AVAILABLE:
         return NoReaderException();
       default:
-        return PcscException._internal(errorCode);
+        return CardException._internal(errorCode);
     }
   }
 
@@ -182,15 +182,15 @@ class PcscException implements Exception {
   String toString() => errorCodeToString(errorCode);
 }
 
-class TimeoutException extends PcscException {
+class TimeoutException extends CardException {
   TimeoutException() : super._internal(SCARD_E_TIMEOUT);
 }
 
-class CancelledException extends PcscException {
+class CancelledException extends CardException {
   CancelledException() : super._internal(SCARD_E_CANCELLED);
 }
 
-class NoReaderException extends PcscException {
+class NoReaderException extends CardException {
   NoReaderException() : super._internal(SCARD_E_NO_READERS_AVAILABLE);
 }
 
@@ -199,5 +199,5 @@ void okOrThrow(int result) {
   // pcsc functions return LONG which is unsigned 32-bit ints
   result = result.toUnsigned(8 * sizeOf<LONG>());
   if (result == SCARD_S_SUCCESS) return;
-  throw PcscException(result);
+  throw CardException(result);
 }

@@ -27,7 +27,9 @@ import 'wrapper.dart' as pcsc;
 class Context {
   final Scope scope;
 
-  late final int _hContext;
+  int? _hContextValue;
+  int get _hContext => _hContextValue ?? (throw StateError('Invalid context'));
+
   CancelableCompleter<List<String>>? _waitCompleter;
 
   Context(this.scope);
@@ -37,15 +39,17 @@ class Context {
   /// This must be the first method called on this.
   /// Await the result before calling other methods.
   Future<void> establish() async {
-    _hContext = await pcsc.establish(scope);
+    _hContextValue = await pcsc.establish(scope);
   }
 
   /// Releases this context.
   ///
   /// Context cannot be used further after this call.
   Future<void> release() async {
+    if (_hContextValue == null) return;
     await _waitCompleter?.operation.cancel();
     await pcsc.release(_hContext);
+    _hContextValue = null;
   }
 
   /// Returns a list of connected card readers.

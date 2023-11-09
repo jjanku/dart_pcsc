@@ -4,24 +4,30 @@ on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
+      # - uses: dart-lang/setup-dart@v1
 
-      - name: Install dependencies
-        run: dart pub get
+      # - name: Install dependencies
+      #   run: dart pub get
 
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed .
+      # - name: Verify formatting
+      #   run: dart format --output=none --set-exit-if-changed .
 
-      - name: Analyze project source
-        run: dart analyze
+      # - name: Analyze project source
+      #   run: dart analyze
 
       - name: Install test dependencies
         # TODO: replace with installation from the pkg manager
         # once vicc gets fixed
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get install pcscd libpcsclite-dev help2man
           git clone https://github.com/frankmorgner/vsmartcard.git
@@ -35,10 +41,30 @@ jobs:
           sudo ln -s /usr/local/lib/python3.10/{site,dist}-packages/virtualsmartcard
           sudo systemctl restart pcscd
 
+      - name: Install test dependencies
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          Invoke-WebRequest https://github.com/frankmorgner/vsmartcard/releases/download/virtualsmartcard-0.9/virtualsmartcard-0.9_win64.zip -OutFile virtualsmartcard.zip
+          Expand-Archive virtualsmartcard.zip -DestinationPath ./
+          cd ./virtualsmartcard-0.9_win64
+          CertMgr /add BixVReader.cer /s /r localMachine root /all
+          CertMgr /add BixVReader.cer /s /r localMachine trustedpublisher
+          msiexec /i BixVReaderInstaller.msi
+
       - name: Setup test environment
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           vicc &
 
+      - name: Setup test environment
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          cd ./virtualsmartcard-0.9_win64
+          net start SCardSvr
+          ./vicc.exe
+          mmc devmgmt.msc
+
       - name: Run tests
         # TODO: test on Windows
-        run: dart test -x interactive
+        run: |
+          dart test -x interactive

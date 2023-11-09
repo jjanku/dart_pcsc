@@ -44,17 +44,6 @@ enum Protocol {
 
   final int value;
   const Protocol(this.value);
-
-  factory Protocol.value(int value) {
-    return switch (value) {
-      SCARD_PROTOCOL_T0 => t0,
-      SCARD_PROTOCOL_T1 => t1,
-      SCARD_PROTOCOL_RAW => raw,
-      SCARD_PROTOCOL_T15 => t15,
-      SCARD_PROTOCOL_ANY => any,
-      _ => throw ArgumentError('Invalid value'),
-    };
-  }
 }
 
 /// Type of connection to the card.

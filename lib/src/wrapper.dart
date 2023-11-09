@@ -10,11 +10,29 @@ import 'exceptions.dart';
 import 'generated/pcsc_lib.dart';
 import 'native_util.dart';
 
+void _okOrThrow(int result) {
+  // constants extraced using ffigen are positive dart signed 64-bit ints,
+  // pcsc functions return LONG which is unsigned 32-bit ints
+  result = result.toUnsigned(8 * sizeOf<LONG>());
+  if (result == SCARD_S_SUCCESS) return;
+
+  switch (result) {
+    case SCARD_E_TIMEOUT:
+      throw TimeoutException();
+    case SCARD_E_CANCELLED:
+      throw CancelledException();
+    case SCARD_E_NO_READERS_AVAILABLE:
+      throw NoReaderException();
+    default:
+      throw CardException(result);
+  }
+}
+
 extension _Wrapper on PcscLib {
   int establish(Scope scope) {
     return using((alloc) {
       final phContext = alloc<SCARDCONTEXT>();
-      okOrThrow(
+      _okOrThrow(
         SCardEstablishContext(scope.value, nullptr, nullptr, phContext),
       );
       return phContext.value;
@@ -22,22 +40,22 @@ extension _Wrapper on PcscLib {
   }
 
   void cancel(int hContext) {
-    okOrThrow(SCardCancel(hContext));
+    _okOrThrow(SCardCancel(hContext));
   }
 
   void release(int hContext) {
-    okOrThrow(SCardReleaseContext(hContext));
+    _okOrThrow(SCardReleaseContext(hContext));
   }
 
   List<String> listReaders(int hContext) {
     return using((alloc) {
       final pcchReaders = alloc<DWORD>();
-      okOrThrow(SCardListReaders(hContext, nullptr, nullptr, pcchReaders));
+      _okOrThrow(SCardListReaders(hContext, nullptr, nullptr, pcchReaders));
 
       if (pcchReaders.value == 0) return [];
 
       final mszReaders = alloc<Char>(pcchReaders.value);
-      okOrThrow(SCardListReaders(hContext, nullptr, mszReaders, pcchReaders));
+      _okOrThrow(SCardListReaders(hContext, nullptr, mszReaders, pcchReaders));
 
       return multiStringToDart(mszReaders.cast<Utf8>()).toList();
     });
@@ -58,7 +76,7 @@ extension _Wrapper on PcscLib {
         pStates[i].dwCurrentState = state;
       }
 
-      okOrThrow(
+      _okOrThrow(
         SCardGetStatusChange(hContext, timeout.inMilliseconds, pStates, length),
       );
 
@@ -80,7 +98,7 @@ extension _Wrapper on PcscLib {
       final phCard = alloc<SCARDHANDLE>();
       final pdwActiveProtocol = alloc<DWORD>();
 
-      okOrThrow(
+      _okOrThrow(
         SCardConnect(
           hContext,
           szReader,
@@ -91,10 +109,15 @@ extension _Wrapper on PcscLib {
         ),
       );
 
-      return (
-        hCard: phCard.value,
-        activeProtocol: Protocol.value(pdwActiveProtocol.value),
-      );
+      final activeProtocol = switch (pdwActiveProtocol.value) {
+        SCARD_PROTOCOL_T0 => Protocol.t0,
+        SCARD_PROTOCOL_T1 => Protocol.t1,
+        SCARD_PROTOCOL_RAW => Protocol.raw,
+        SCARD_PROTOCOL_T15 => Protocol.t15,
+        _ => throw ArgumentError('Invalid value'),
+      };
+
+      return (hCard: phCard.value, activeProtocol: activeProtocol);
     });
   }
 
@@ -121,7 +144,7 @@ extension _Wrapper on PcscLib {
       final pbSendBuffer = alloc<Uint8>(data.length);
       pbSendBuffer.asTypedList(data.length).setAll(0, data);
 
-      okOrThrow(
+      _okOrThrow(
         SCardTransmit(
           hCard,
           pioSendPci,

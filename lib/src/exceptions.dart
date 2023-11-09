@@ -1,4 +1,3 @@
-import 'dart:ffi';
 import 'dart:io';
 
 import 'generated/pcsc_lib.dart';
@@ -164,41 +163,20 @@ String _errorCodeToString(int error) {
 class CardException implements Exception {
   final int errorCode;
 
-  CardException._internal(this.errorCode);
-
-  factory CardException(int errorCode) {
-    switch (errorCode) {
-      case SCARD_E_TIMEOUT:
-        return TimeoutException();
-      case SCARD_E_CANCELLED:
-        return CancelledException();
-      case SCARD_E_NO_READERS_AVAILABLE:
-        return NoReaderException();
-      default:
-        return CardException._internal(errorCode);
-    }
-  }
+  CardException(this.errorCode);
 
   @override
   String toString() => _errorCodeToString(errorCode);
 }
 
 class TimeoutException extends CardException {
-  TimeoutException() : super._internal(SCARD_E_TIMEOUT);
+  TimeoutException() : super(SCARD_E_TIMEOUT);
 }
 
 class CancelledException extends CardException {
-  CancelledException() : super._internal(SCARD_E_CANCELLED);
+  CancelledException() : super(SCARD_E_CANCELLED);
 }
 
 class NoReaderException extends CardException {
-  NoReaderException() : super._internal(SCARD_E_NO_READERS_AVAILABLE);
-}
-
-void okOrThrow(int result) {
-  // constants extraced using ffigen are positive dart signed 64-bit ints,
-  // pcsc functions return LONG which is unsigned 32-bit ints
-  result = result.toUnsigned(8 * sizeOf<LONG>());
-  if (result == SCARD_S_SUCCESS) return;
-  throw CardException(result);
+  NoReaderException() : super(SCARD_E_NO_READERS_AVAILABLE);
 }

@@ -8,6 +8,22 @@ import 'exceptions.dart';
 import 'generated/pcsc_lib.dart';
 import 'wrapper.dart' as pcsc;
 
+/// Connection to the smart card service.
+///
+/// A created context must be [establish]-ed before any other methods
+/// can be used. Once the context is no longer needed, it must be [release]-ed
+/// so that all allocated resources are freed properly.
+/// ```dart
+/// final context = Context(Scope.user);
+/// await context.establish();
+/// // do something useful with the context
+/// await context.release();
+/// ```
+///
+/// All operations requested from a given context are handled synchronously.
+/// Calling a method while another one has not finished yet may become an error
+/// in the future. If you need to perform some operations in parallel, allocate
+/// multiple contexts.
 class Context {
   final Scope scope;
 
@@ -16,15 +32,23 @@ class Context {
 
   Context(this.scope);
 
+  /// Establishes this context.
+  ///
+  /// This must be the first method called on this.
+  /// Await the result before calling other methods.
   Future<void> establish() async {
     _hContext = await pcsc.establish(scope);
   }
 
+  /// Releases this context.
+  ///
+  /// Context cannot be used further after this call.
   Future<void> release() async {
     await _waitCompleter?.operation.cancel();
     await pcsc.release(_hContext);
   }
 
+  /// Returns a list of connected card readers.
   Future<List<String>> listReaders() async {
     try {
       return await pcsc.listReaders(_hContext);
@@ -94,10 +118,17 @@ class Context {
     return completer.operation;
   }
 
+  /// Waits for a reader to be added or removed.
+  ///
+  /// This operation can be cancelled.
   CancelableOperation<void> waitForReaderChange() {
     return _waitForState([r'\\?PnP?\Notification'], SCARD_STATE_CHANGED);
   }
 
+  /// Waits until a card is present in one of the [readers].
+  ///
+  /// Returns a subset of [readers] that do contain a card.
+  /// This operation can be cancelled.
   CancelableOperation<List<String>> waitForCard(List<String> readers) {
     return _waitForState(readers, SCARD_STATE_PRESENT);
   }
@@ -107,6 +138,7 @@ class Context {
     _waitCompleter = null;
   }
 
+  /// Connects to a card in the [reader].
   Future<Card> connect(
     String reader,
     ShareMode mode,
@@ -117,6 +149,9 @@ class Context {
   }
 }
 
+/// Connection to a smart card.
+///
+/// This can be established using [Context.connect].
 class Card {
   final int _hCard;
   final Protocol activeProtocol;
@@ -125,9 +160,11 @@ class Card {
 
   // TODO: add transactions
 
+  /// Sends [data] to this card and returns its response.
   Future<Uint8List> transmit(Uint8List data) =>
       pcsc.transmit(_hCard, activeProtocol, data);
 
+  /// Disconnects this card.
   Future<void> disconnect(Disposition disposition) =>
       pcsc.disconnect(_hCard, disposition);
 }

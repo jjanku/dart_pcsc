@@ -160,6 +160,7 @@ String _errorCodeToString(int error) {
   }
 }
 
+/// Base exception class for PC/SC failures.
 class CardException implements Exception {
   final int errorCode;
 

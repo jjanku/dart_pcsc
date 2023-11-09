@@ -6,6 +6,7 @@ smart cards.
 * send/receive APDUs to/from smart cards
 * wait for cards & readers
 * works on Linux, Windows
+* usable in pure Dart as well as in Flutter
 
 ## Getting started
 

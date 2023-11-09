@@ -10,7 +10,7 @@ import 'exceptions.dart';
 import 'generated/pcsc_lib.dart';
 import 'native_util.dart';
 
-extension Wrapper on PcscLib {
+extension _Wrapper on PcscLib {
   int establish(Scope scope) {
     return using((alloc) {
       final phContext = alloc<SCARDCONTEXT>();
@@ -142,7 +142,7 @@ extension Wrapper on PcscLib {
   }
 }
 
-PcscLib pcscLibOpen() {
+PcscLib _pcscLibOpen() {
   if (Platform.isLinux) {
     return PcscLib(DynamicLibrary.open('libpcsclite.so.1'));
   }
@@ -152,31 +152,31 @@ PcscLib pcscLibOpen() {
   throw UnsupportedError('Platform unsupported');
 }
 
-final pcscLib = pcscLibOpen();
+final _pcscLib = _pcscLibOpen();
 
 Future<int> establish(Scope scope) =>
-    Isolate.run(() => pcscLib.establish(scope));
+    Isolate.run(() => _pcscLib.establish(scope));
 
 Future<void> cancel(int hContext) =>
-    Isolate.run(() => pcscLib.cancel(hContext));
+    Isolate.run(() => _pcscLib.cancel(hContext));
 
 Future<void> release(int hContext) =>
-    Isolate.run(() => pcscLib.release(hContext));
+    Isolate.run(() => _pcscLib.release(hContext));
 
 Future<List<String>> listReaders(int hContext) =>
-    Isolate.run(() => pcscLib.listReaders(hContext));
+    Isolate.run(() => _pcscLib.listReaders(hContext));
 
 Future<Map<String, int>> waitForChange(
         int hContext, Duration timeout, Map<String, int> readerStates) =>
-    Isolate.run(() => pcscLib.waitForChange(hContext, timeout, readerStates));
+    Isolate.run(() => _pcscLib.waitForChange(hContext, timeout, readerStates));
 
 Future<({int hCard, Protocol activeProtocol})> connect(
         int hContext, String reader, ShareMode mode, Protocol protocol) =>
-    Isolate.run(() => pcscLib.connect(hContext, reader, mode, protocol));
+    Isolate.run(() => _pcscLib.connect(hContext, reader, mode, protocol));
 
 Future<Uint8List> transmit(
         int hCard, Protocol activeProtocol, Uint8List data) =>
-    Isolate.run(() => pcscLib.transmit(hCard, activeProtocol, data));
+    Isolate.run(() => _pcscLib.transmit(hCard, activeProtocol, data));
 
 Future<void> disconnect(int hCard, Disposition disposition) =>
-    Isolate.run(() => pcscLib.disconnect(hCard, disposition));
+    Isolate.run(() => _pcscLib.disconnect(hCard, disposition));

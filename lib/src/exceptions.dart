@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'generated/pcsc_lib.dart';
 
-String errorCodeToString(int error) {
+String _errorCodeToString(int error) {
   // copied from pcsclite.h
   switch (error) {
     case SCARD_S_SUCCESS:
@@ -179,7 +179,7 @@ class CardException implements Exception {
   }
 
   @override
-  String toString() => errorCodeToString(errorCode);
+  String toString() => _errorCodeToString(errorCode);
 }
 
 class TimeoutException extends CardException {

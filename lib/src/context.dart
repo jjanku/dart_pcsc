@@ -61,7 +61,7 @@ class Context {
     }
   }
 
-  void _completeOnState(
+  Future<void> _completeOnState(
     List<String> readers,
     int state,
     CancelableCompleter<List<String>> completer,
@@ -70,14 +70,11 @@ class Context {
       for (var reader in readers) reader: SCARD_STATE_UNAWARE
     };
 
-    // this loop is on the main isolate and infinite pcsc timeout is not used,
-    // otherwise there might be a race where SCardCancel is called before
-    // the operation starts
     while (!completer.isCanceled) {
       late Map<String, int> newReaderStates;
       try {
         newReaderStates = await pcsc.waitForChange(
-            _hContext, const Duration(seconds: 1), readerStates);
+            _hContext, const Duration(minutes: 1), readerStates);
       } on CancelledException {
         break;
       } on TimeoutException {
@@ -116,8 +113,27 @@ class Context {
       throw StateError('Parallel wait operations not allowed');
     }
 
-    final completer = CancelableCompleter<List<String>>(onCancel: _cancel);
-    _completeOnState(readers, state, completer);
+    late Future<void> finished;
+
+    Future<void> cancel() async {
+      bool repeat;
+      do {
+        await pcsc.cancel(_hContext);
+        // Ensures that _completeOnState returns before this function returns.
+        // If SCardCancel gets called before SCardGetStatusChange, it has no
+        // effect and thus the context is blocked. In that case, we repeat
+        // the cancellation.
+        repeat = await finished
+            .then((_) => false)
+            .timeout(const Duration(milliseconds: 50), onTimeout: () => true);
+        print(repeat);
+      } while (repeat);
+
+      _waitCompleter = null;
+    }
+
+    final completer = CancelableCompleter<List<String>>(onCancel: cancel);
+    finished = _completeOnState(readers, state, completer);
     _waitCompleter = completer;
     return completer.operation;
   }
@@ -135,11 +151,6 @@ class Context {
   /// This operation can be cancelled.
   CancelableOperation<List<String>> waitForCard(List<String> readers) {
     return _waitForState(readers, SCARD_STATE_PRESENT);
-  }
-
-  Future<void> _cancel() async {
-    await pcsc.cancel(_hContext);
-    _waitCompleter = null;
   }
 
   /// Connects to a card in the [reader].

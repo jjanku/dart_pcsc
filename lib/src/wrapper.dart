@@ -177,6 +177,10 @@ PcscLib _pcscLibOpen() {
 
 final _pcscLib = _pcscLibOpen();
 
+// Note that these need to be standalone functions so that only the actual
+// parameters needed are sent via the SendPort, see
+// https://api.flutter.dev/flutter/dart-isolate/Isolate/run.html
+
 Future<int> establish(Scope scope) =>
     Isolate.run(() => _pcscLib.establish(scope));
 

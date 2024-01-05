@@ -407,9 +407,8 @@ class PcscLib {
   }
 
   late final _SCardSetAttribPtr = _lookup<
-          ffi
-          .NativeFunction<LONG Function(SCARDHANDLE, DWORD, LPCBYTE, DWORD)>>(
-      'SCardSetAttrib');
+      ffi.NativeFunction<
+          LONG Function(SCARDHANDLE, DWORD, LPCBYTE, DWORD)>>('SCardSetAttrib');
   late final _SCardSetAttrib =
       _SCardSetAttribPtr.asFunction<int Function(int, int, LPCBYTE, int)>();
 

@@ -1,3 +1,13 @@
+## 2.0.0
+
+- Prepare for publishing to pub.dev
+- Migrate to the new Isolate API
+- Code quality improvements
+- Improve wait cancellation reliability
+- Simplify API, remove "Pcsc" prefix
+- Add docs
+- Add tests
+
 ## 1.2.0
 
 - Update dependencies, require Dart 3.0.

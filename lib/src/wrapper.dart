@@ -172,6 +172,9 @@ PcscLib _pcscLibOpen() {
   if (Platform.isWindows) {
     return PcscLibWin(DynamicLibrary.open('winscard.dll'));
   }
+  if (Platform.isMacOS) {
+    return PcscLib(DynamicLibrary.open('/System/Library/Frameworks/PCSC.framework/PCSC'));
+  }
   throw UnsupportedError('Platform unsupported');
 }
 

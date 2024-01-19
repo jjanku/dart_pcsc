@@ -21,5 +21,3 @@ See [example/dart_pcsc_example.dart](example/dart_pcsc_example.dart).
 
 At the moment, not all functions provided by the C API are covered.
 Pull requests are welcome.
-
-MacOS support is missing, but it should be easy to add. Help wanted.

@@ -1,11 +1,12 @@
 name: dart_pcsc
 description: Communicate with smart cards using PC/SC.
-version: 2.0.0
+version: 2.0.1
 repository: https://github.com/jjanku/dart_pcsc
 
 platforms:
   linux:
   windows:
+  macos:
 
 environment:
   sdk: ^3.0.0

@@ -1,3 +1,7 @@
+## 2.0.1
+
+- Support macOS (@dangfan)
+
 ## 2.0.0
 
 - Prepare for publishing to pub.dev
